@@ -1,5 +1,5 @@
 ---
-title: "Horizon thicknesses"
+title: "Horizon thickness"
 author: "Amanda Pennino"
 date: "7/8/2021"
 output: html_document
@@ -26,7 +26,7 @@ AUGERS <- AUGERS %>%
     Bottom_Interface = `Bottom Interface`
     )
 
-#Remove anything that doen't have horizon level data! OR! Keep if you're just interested in mapping the HPU
+#Remove anything that doesn't have horizon level data! OR! Keep if you're just interested in mapping the HPU
 unique(AUGERS$Horizon)
 AUGERS <- AUGERS %>% 
   filter(!(Horizon %in% c("E Podzol", "(Bark?) Histosol", "unknown", "Bhs podzol", "Bedrock", "Histosol", "Unknown podzol", "Bedrock", "Dark E Podzol", "Bhs Podzol", "E Podzol\n", "Bedrock Histosol")))
@@ -93,7 +93,7 @@ AUGERS <- left_join(AUGERS, LOCATIONS_AUGERS, by = "Site")
 LATWAG soil pits (Jenny's, Steph's, PFMs)
 ```{r}
 #update as data gets added to the database
-#SET IT TO YOUR OWN LOCATION
+#SET IT TO YOUR OWN DIRECTORY
 LATWAG <- read_csv("~/Documents/VT/Data/MyData/Soil_Analyses/data/processed/LATWAG_Soil_Database.csv")
 
 #Need to calculate lower depth & add in bottom interface!!
@@ -182,7 +182,7 @@ x <- x %>%
 LEGACY <- bind_rows(LEGACY, x)
 
 
-#calc horizonthickness
+#calc horizon thickness
 LEGACY$Horizon_thickness <- LEGACY$Lower_cm - LEGACY$Upper_cm
 
 LEGACY <- LEGACY %>%
@@ -236,6 +236,6 @@ XY <- bind_rows(X, LEGACY)
 XY$HPU[XY$HPU == "T"] <- "Typical"
 XY$HPU[XY$HPU == "Bi"] <- "Bimodal"
 
-sf::st_write(XY, "data/HorizonThickness_all.shp", delete_layer=TRUE)
+sf::st_write(XY, "data/Shapefiles/HorizonThickness_all.shp", delete_layer=TRUE)
 
 ```
