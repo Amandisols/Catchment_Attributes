@@ -62,7 +62,6 @@ AUGERS <- AUGERS %>%
 #Add back extra data
 AUGERS <- left_join(AUGERS, EXTRA, by = "Site")
 
-
 #ADD UPDATED HPU INFORMATION AS PODZOLS ARE DESCRIBED, this is not the most efficient way, but it works.
 HPU_42 <- read_excel("data/Pedon_Podzols.xlsx")
 AUGERS <- left_join(AUGERS, HPU_42, by = "Site")
@@ -87,7 +86,6 @@ LOCATIONS_AUGERS <- read_sf(dsn = "data/Shapefiles", layer = "auger_locations_al
 AUGERS <- left_join(AUGERS, LOCATIONS_AUGERS, by = "Site")
 
 ```
-
 
 
 LATWAG soil pits (Jenny's, Steph's, PFMs)
@@ -220,7 +218,6 @@ LOCATIONS_LEGACY <- LOCATIONS_LEGACY %>%
 LEGACY <- left_join(LEGACY, LOCATIONS_LEGACY, by = "Site")
 
 ```
-
 
 
 Combine datasets, fix differences in HPU designations, and export the shapefile.
