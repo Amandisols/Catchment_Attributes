@@ -4,7 +4,9 @@ author: "Amanda Pennino" modded by Jenny Bower
 date: "7/8/2021"
 output: html_document
 ---
-
+Notes: All working, but Latwag and Legacy need addition of pedon bottom interface for 42 (take bottom of each after grouping, see: legacy)
+*Note: currently calculation of bedrock Histosols is messed up (disregards other horizons; add in Bg, Bw)
+Add new horizon (horizon_calc) column that is based on color and location
 ```{r}
 library(tidyverse)
 library(readxl)
@@ -13,63 +15,9 @@ library(sp)
 library(stringr)
 ```
 
-Notes: All working, but Latwag and Legacy need addition of calculation of pedon thickness and pedon bottom interface
-
-Ideally you should classify the BC and C/D interfaces and take out all of the extra columns used to calculate things
-
-*Note: currently calculation of Bh horizon thickness is messed up (uses Bhs in addition to Bh)
-
-Add new horizon (horizon_calc) column that is based on color and location
-
-Eventually incorporate spatial things into key
+Functions
 ```{r}
-AUGERS <- read_csv("data/AugerDescriptions.csv")
-
-AUGERS <- AUGERS %>% 
-  rename(
-    Site2 = `Site Name`,
-    Upper_cm = `Top (cm)`,
-    Lower_cm = `Bottom (cm)`,
-    Horizon_thickness = `Horizon Depth (cm)`,
-    Total_Depth = `Total Depth`,
-    Bottom_Interface = `Bottom Interface`
-    )
-
-#Remove anything that doesn't have horizon level data! OR! Keep if you're just interested in mapping the HPU
-unique(AUGERS$Horizon)
-AUGERS <- AUGERS %>% 
-  filter(!(Horizon %in% c("E Podzol", "(Bark?) Histosol", "unknown", "Bhs podzol", "Bedrock", "Histosol", "Unknown podzol", "Bedrock", "Dark E Podzol", "Bhs Podzol", "E Podzol\n", "Bedrock Histosol", "Moss", "", "????")))
-
-#Combine major horizon and subdesignations into one column
-AUGERS$Horizon2 <- paste(str_trim(AUGERS$Horizon), AUGERS$Suffix, sep = "")
-AUGERS$Horizon2 <- gsub('NA', '', AUGERS$Horizon2)
-
-#Combine subwatershed and site into one column
-AUGERS$Site <- paste(AUGERS$Subwatershed, AUGERS$Site2, sep = "")
-
-#Remove any blank horizons
-AUGERS <- AUGERS %>% 
-  filter(!(Horizon == ""))
-
-#Take out subwatershed, HPU, and bottom interface data to add back later after pivots
-EXTRA <- AUGERS %>% 
-  dplyr::select(Site, HPU, Bottom_Interface, Total_Depth) %>%
-  group_by(Site) %>%
-  summarise_all(first)
-
-#Select columns to pivot, Take out duplicated rows prior to pivot.
-#Need subwatershed otherwise coincident duplicate rows will be removed.
-AUGERS <- AUGERS %>% 
-  dplyr::select(Site, Horizon2, Horizon_thickness)
-
-AUGERS <- AUGERS %>% mutate(row = row_number()) %>%pivot_wider(names_from = Horizon2, values_from = c(Horizon_thickness)) %>% dplyr::select(-row) %>% group_by(Site) %>% summarise_all(tibble::lst(sum), na.rm = TRUE)
-
-#Add back extra data
-AUGERS <- left_join(AUGERS, EXTRA, by = "Site")
-
 #Aggregating horizons for summary stats. e.g., total thickness of all O-horizons
-#TAKE NOTE HERE TO WHAT HORIZONS I AM GROUPING INTO WHAT. THIS CAN BE CHANGED.
-#dimnames(AUGERS)
 Ofun <- function(x){
   x <- cbind(x, allO_thickness = rowSums(x[,grep("O",colnames(x))], na.rm = TRUE))
   return(x$allO_thickness)}
@@ -97,6 +45,56 @@ BCfun <- function(x){
 Cfun <- function(x){
   x <- cbind(x, allC_thickness = rowSums(x[,grep("[^B]C",colnames(x))], na.rm = TRUE))
   return(x$allC_thickness)}
+```
+
+```{r}
+AUGERS <- read_csv("data/AugerDescriptions.csv")
+
+AUGERS <- AUGERS %>% 
+  rename(
+    Site2 = `Site Name`,
+    Upper_cm = `Top (cm)`,
+    Lower_cm = `Bottom (cm)`,
+    Horizon_Thickness = `Horizon Depth (cm)`,
+    Total_Depth = `Total Depth`,
+    Bottom_Interface = `Bottom Interface`
+    )
+
+#Remove anything that doesn't have horizon level data! OR! Keep if you're just interested in mapping the HPU
+unique(AUGERS$Horizon)
+AUGERS <- AUGERS %>% 
+  filter(!(Horizon %in% c("E Podzol", "(Bark?) Histosol", "unknown", "Bhs podzol", "Bedrock", "Histosol", "Unknown podzol", "Bedrock", "Dark E Podzol", "Bhs Podzol", "E Podzol\n", "Bedrock Histosol", "Moss", "", "????")))
+
+#Combine major horizon and subdesignations into one column
+AUGERS$Horizon2 <- paste(str_trim(AUGERS$Horizon), AUGERS$Suffix, sep = "")
+AUGERS$Horizon2 <- gsub('NA', '', AUGERS$Horizon2)
+
+#Combine subwatershed and site into one column
+AUGERS$Site <- paste(AUGERS$Subwatershed, AUGERS$Site2, sep = "")
+
+#Remove any blank horizons
+AUGERS <- AUGERS %>% filter(!(Horizon == ""))
+
+#Fill in bottom interface for 42
+AUGERS42 <- AUGERS %>% filter(Subwatershed == 42)
+AUGERS42 <- AUGERS42 %>% group_by(Site) %>% summarise(Horizon2 = Horizon2, Bottom_Interface = last(Horizon2))
+AUGERS$Bottom_Interface[AUGERS$Subwatershed == 42] <- AUGERS42$Bottom_Interface
+
+#Take out subwatershed, HPU, and bottom interface data to add back later after pivots
+EXTRA <- AUGERS %>% 
+  dplyr::select(Site, HPU, Bottom_Interface, Total_Depth) %>%
+  group_by(Site) %>%
+  summarise_all(first)
+
+#Select columns to pivot, Take out duplicated rows prior to pivot.
+#Need subwatershed otherwise coincident duplicate rows will be removed.
+AUGERS <- AUGERS %>% 
+  dplyr::select(Site, Horizon2, Horizon_Thickness)
+
+AUGERS <- AUGERS %>% mutate(row = row_number()) %>%pivot_wider(names_from = Horizon2, values_from = c(Horizon_Thickness)) %>% dplyr::select(-row) %>% group_by(Site) %>% summarise_all(tibble::lst(sum), na.rm = TRUE)
+
+#Add back extra data
+AUGERS <- left_join(AUGERS, EXTRA, by = "Site")
 
 #Apply functions
 allO <- Ofun(AUGERS)
@@ -104,6 +102,10 @@ allE <- Efun(AUGERS)
 allBhs <- Bhsfun(AUGERS)
 allBs <- Bsfun(AUGERS)
 allBh <- Bhfun(AUGERS)
+allBg <- Bgfun(AUGERS)
+allBw <- Bwfun(AUGERS)
+allBC <- BCfun(AUGERS)
+allC <- Cfun(AUGERS)
 
 #Add back to data frame
 AUGERS$allO_thickness <- allO
@@ -111,6 +113,10 @@ AUGERS$allE_thickness <- allE
 AUGERS$allBhs_thickness <- allBhs
 AUGERS$allBs_thickness <- allBs
 AUGERS$allBh_thickness <- allBh
+AUGERS$allBg_thickness <- allBg
+AUGERS$allBw_thickness <- allBw
+AUGERS$allBC_thickness <- allBC
+AUGERS$allC_thickness <- allC
 
 #Add locations
 #This makes sure to join based on subwatershed PLUS site
@@ -118,12 +124,11 @@ LOCATIONS_AUGERS <- read_sf(dsn = "data/Shapefiles", layer = "auger_locations_al
 LOCATIONS_AUGERS <- LOCATIONS_AUGERS %>% rename(Site2 = Site)
 LOCATIONS_AUGERS$Site <- paste0(LOCATIONS_AUGERS$Sub, LOCATIONS_AUGERS$Site2)
 AUGERS <- left_join(AUGERS, LOCATIONS_AUGERS, by = "Site")
-AUGERS_shp <- AUGERS[,c("Site", "Total_Depth", "allO_thickness", "allE_thickness", "allBhs_thickness", "allBs_thickness", "allBh_thickness", "x", "y", "geometry")]
+AUGERS_shp <- AUGERS[,c("Site", "Total_Depth", "Bottom_Interface", "allO_thickness", "allE_thickness", "allBhs_thickness", "allBs_thickness", "allBh_thickness", "x", "y", "geometry")]
 write.csv(AUGERS, "augers.csv")
 
 #Exports auger file
 sf::st_write(AUGERS_shp, "data/Shapefiles/HorizonThickness_Augeronly.shp", delete_layer=TRUE)
-
 ```
 
 LATWAG soil pits (Jenny's, Steph's, PFMs)
@@ -139,15 +144,15 @@ LATWAG <- LATWAG %>%
     Site = pedon,
     Upper_cm = `top cm`,
     Lower_cm = `base cm`,
-    Horizon_thickness = thick
+    Horizon_Thickness = thick
     )
 
 LATWAG$Horizon2 <- LATWAG$horizon
 
 LATWAG <- LATWAG %>%
-  dplyr::select(Site, Horizon2, Horizon_thickness)
+  dplyr::select(Site, Horizon2, Horizon_Thickness)
 
-LATWAG <- LATWAG %>% mutate(row = row_number()) %>%pivot_wider(names_from = Horizon2, values_from = c(Horizon_thickness)) %>% dplyr::select(-row) %>% group_by(Site) %>% summarise_all(tibble::lst(sum), na.rm = TRUE)
+LATWAG <- LATWAG %>% mutate(row = row_number()) %>%pivot_wider(names_from = Horizon2, values_from = c(Horizon_Thickness)) %>% dplyr::select(-row) %>% group_by(Site) %>% summarise_all(tibble::lst(sum), na.rm = TRUE)
 
 #Apply functions
 allO <- Ofun(LATWAG)
@@ -168,8 +173,8 @@ LOCATIONS_LATWAG <- read_excel("~/Documents/uvm/phd/research/data/lab/Soil_Analy
 #exclude one pit missing coordinates
 LOCATIONS_LATWAG <- LOCATIONS_LATWAG %>% filter(!(`Pedon ID` == "42_4_V4.2"))
 LOCATIONS_LATWAG <- st_as_sf(LOCATIONS_LATWAG, coords = c("Easting", "Northing"))
-LOCATIONS_LATWAG <- LOCATIONS_LATWAG %>% rename(Site = `Pedon ID`)
-LOCATIONS_LATWAG <- LOCATIONS_LATWAG %>% dplyr::select(Site, HPU, geometry)
+LOCATIONS_LATWAG <- LOCATIONS_LATWAG %>% rename(Site = `Pedon ID`, Bottom_Interface = Base)
+LOCATIONS_LATWAG <- LOCATIONS_LATWAG %>% dplyr::select(Site,  HPU, Bottom_Interface, geometry)
 LATWAG <- left_join(LATWAG, LOCATIONS_LATWAG, by = "Site")
 
 sf::st_write(LATWAG, "data/Shapefiles/HorizonThickness_Latwagonly.shp", delete_layer=TRUE)
@@ -204,15 +209,21 @@ LOCATIONS_LEGACY <- LOCATIONS_LEGACY %>%
     )
 
 #Calc horizon thickness
-LOCATIONS_LEGACY$Horizon_thickness <- LOCATIONS_LEGACY$Lower_cm - LOCATIONS_LEGACY$Upper_cm
+LOCATIONS_LEGACY$Horizon_Thickness <- LOCATIONS_LEGACY$Lower_cm - LOCATIONS_LEGACY$Upper_cm
 
-#Convert back to data frame and select relevant columns
+#Convert back to data frame
 LEGACY <- as_tibble(LOCATIONS_LEGACY)
 
-LEGACY <- LEGACY %>%
-  dplyr::select(Site, Horizon2, Horizon_thickness)
+#This grabs the lower interface
+LEGACY <- LEGACY %>% group_by(Site) %>% arrange(Upper_cm, .by_group = TRUE) %>%  summarise(Site = Site, Horizon2 = Horizon2, Horizon_Thickness = Horizon_Thickness, Bottom_Interface = last(Horizon2))
 
-LEGACY <- LEGACY %>% mutate(row = row_number()) %>% pivot_wider(names_from = Horizon2, values_from = c(Horizon_thickness)) %>% dplyr::select(-row) %>% group_by(Site) %>% summarise_all(tibble::lst(sum), na.rm = TRUE)
+LEGACY_bott <- LEGACY
+
+#Choose only the columns you need
+LEGACY <- LEGACY %>% select(Site, Horizon2, Horizon_Thickness)
+
+#Pivots wider
+LEGACY <- LEGACY %>% mutate(row = row_number()) %>% pivot_wider(names_from = Horizon2, values_from = c(Horizon_Thickness)) %>% dplyr::select(-row) %>% summarise_all(lst(sum), na.rm = TRUE)
 
 #Apply functions
 allO <- Ofun(LEGACY)
@@ -234,6 +245,11 @@ LEGACY_coords <- LEGACY_coords %>% rename(Site = pedon, HPU = hpu)
 LEGACY_coords <- LEGACY_coords %>% dplyr::select(Site, HPU, geometry)
 
 LEGACY <- left_join(LEGACY, LEGACY_coords, by = "Site")
+
+LEGACY_bott <- LEGACY_bott %>% group_by(Site) %>% summarise(Bottom_Interface = first(Bottom_Interface))
+
+LEGACY <- left_join(LEGACY, LEGACY_bott, by = "Site")
+
 sf::st_write(LEGACY, "data/Shapefiles/HorizonThickness_Legacyonly.shp", delete_layer=TRUE)
 ```
 
@@ -247,7 +263,7 @@ X$HPU[X$HPU == "T"] <- "Typical"
 X$HPU[X$HPU == "Bi"] <- "Bimodal"
 
 #Select only needed fields
-X <- select(X, c('allO_thickness', 'allE_thickness', 'allBhs_thickness', 'allBs_thickness', 'allBh_thickness','HPU','Site','x','y','geometry'))
+X <- select(X, c('allO_thickness', 'allE_thickness', 'allBhs_thickness', 'allBs_thickness', 'allBh_thickness','HPU','Site','Bottom_Interface','x','y','geometry'))
 
 sf::st_write(X, "data/Shapefiles/HorizonThickness_all.shp", driver = "ESRI Shapefile", delete_layer=TRUE)
 
