@@ -296,6 +296,11 @@ for(a in seq(1:nrow(X))){
   }
 }
 
+#Reclassify HPUs of problem Bh podzols classified by undergraduates on a cloudy day (likely to be Bhs podzols based on Steph and Jenny classification)
+if(X$HPU2[grep("42R12|42R14|42R16|42R18|42R20",X$Site)] == "Bh Podzol"){
+  X$HPU2 <- "Bhs podzol"
+}
+
 #Export shapefile
 sf::st_write(X, "data/Shapefiles/HorizonThickness_all.shp", driver = "ESRI Shapefile", delete_layer=TRUE)
 
