@@ -1,0 +1,31 @@
+---
+title: "Average thickness"
+author: "Amanda Pennino"
+date: "9/8/2021"
+output: html_document
+---
+
+```{r}
+
+library(tidyverse)
+library(sp)
+library(sf)
+library(rgeos)
+library(rgdal)
+
+
+THICK <- read_sf(dsn = "~/Documents/VT/Data/MyData/Catchment_Attributes/data/Shapefiles", layer = "HorizonThickness_all")
+
+THICK$allB <- THICK$allBhs_ + THICK$allBs_t + THICK$allBh_t
+
+THICK <- THICK[!is.na(THICK$SubCatch),]
+
+THICK <- THICK %>%
+  group_by(SubCatch) %>%
+  summarise_at(vars(allO_th, allE_th, allBhs_, allBs_t, allBh_t, allB), list(name = mean))
+
+#NOTE: you will need to average 42_2 & 42_3 together to get the whole 42_3 average. Do the same for all the subcatchments that have other's nested within them. 
+
+
+
+```
