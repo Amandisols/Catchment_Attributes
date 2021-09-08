@@ -26,6 +26,7 @@ THICK <- THICK %>%
 
 #NOTE: you will need to average 42_2 & 42_3 together to get the whole 42_3 average. Do the same for all the subcatchments that have other's nested within them. 
 
+THICK$geometry <- NULL
 
 write.csv(THICK, file = 'data/SoilThickness_PointAvgs.csv')
 ```
